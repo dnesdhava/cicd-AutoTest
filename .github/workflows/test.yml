@@ -1,4 +1,4 @@
-name: Selenium Automation Tests CI/CD
+name: Selenium Automation Tests CI/CD & Deployment
 
 on:
   push:
@@ -7,9 +7,13 @@ on:
     branches: [ main, master ]
   schedule:
     - cron: '0 0 * * *'  # Daily execution at midnight
+  workflow_dispatch:      # Allows manual trigger from GitHub UI / CLI
+
+permissions:
+  contents: write
 
 jobs:
-  test:
+  test-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +34,13 @@ jobs:
       run: |
         pytest --browser=chrome --headless=true --html=reports/report.html --self-contained-html
 
-    - name: Upload Test Report
+    - name: Prepare Report for Deployment
+      if: always()
+      run: |
+        mkdir -p public
+        cp reports/report.html public/index.html
+
+    - name: Upload Test Report Artifact
       if: always()
       uses: actions/upload-artifact@v4
       with:
@@ -43,3 +53,10 @@ jobs:
       with:
         name: failure-screenshots
         path: screenshots/
+
+    - name: Deploy Test Report to GitHub Pages
+      if: github.ref == 'refs/heads/main' && always()
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./public
